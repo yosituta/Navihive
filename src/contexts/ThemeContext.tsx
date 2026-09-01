@@ -229,7 +229,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
         },
       },
       shape: {
-        borderRadius: 4,
+        borderRadius: 3,
       },
       typography: {
         fontFamily: 'Roboto, "Segoe UI Variable", "PingFang SC", sans-serif',
