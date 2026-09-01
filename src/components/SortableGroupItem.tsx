@@ -27,7 +27,7 @@ export default function SortableGroupItem({ id, group }: SortableGroupItemProps)
       style={style}
       sx={{
         p: 3,
-        borderRadius: 1,
+        borderRadius: 3,
         transition: isDragging ? 'none !important' : 'all 0.3s ease-in-out',
         border: '1px solid transparent',
         boxShadow: isDragging ? 8 : 2,
