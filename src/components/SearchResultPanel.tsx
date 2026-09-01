@@ -1,0 +1,221 @@
+/**
+ * 搜索结果面板组件
+ * 显示站内搜索结果的下拉面板
+ */
+
+import React from 'react';
+import {
+  Paper,
+  Popper,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemText,
+  Typography,
+  Chip,
+  Box,
+  Divider,
+} from '@mui/material';
+import { Language as LanguageIcon, Folder as FolderIcon } from '@mui/icons-material';
+import type { SearchResultItem } from '../utils/search';
+import HighlightedText from './HighlightedText';
+
+interface SearchResultPanelProps {
+  results: SearchResultItem[];
+  query: string;
+  onResultClick: (result: SearchResultItem) => void;
+  open: boolean;
+  anchorEl?: HTMLElement | null;
+}
+
+const SearchResultPanel: React.FC<SearchResultPanelProps> = ({
+  results,
+  query,
+  onResultClick,
+  open,
+  anchorEl,
+}) => {
+  if (!open || !query || results.length === 0) {
+    return null;
+  }
+
+  const fieldLabels: Record<string, string> = {
+    name: '名称',
+    url: '链接',
+    description: '描述',
+    notes: '备注',
+  };
+
+  return (
+    <Popper
+      open
+      anchorEl={anchorEl}
+      placement='bottom-start'
+      modifiers={[{ name: 'offset', options: { offset: [0, 8] } }]}
+      sx={{ zIndex: 1500, width: anchorEl?.clientWidth || '100%' }}
+    >
+      <Paper
+        elevation={0}
+        onMouseDown={(event) => event.stopPropagation()}
+        sx={{
+          maxHeight: '420px',
+          overflowY: 'auto',
+          borderRadius: 4,
+          border: '1px solid',
+          borderColor: 'divider',
+          backgroundColor: (theme) =>
+            theme.palette.mode === 'dark' ? 'rgba(8, 26, 38, 0.94)' : 'rgba(255, 255, 255, 0.96)',
+          backdropFilter: 'blur(16px)',
+          boxShadow: (theme) =>
+            theme.palette.mode === 'dark'
+              ? '0 30px 60px rgba(0, 0, 0, 0.35)'
+              : '0 24px 48px rgba(15, 118, 110, 0.12)',
+        }}
+      >
+      <List sx={{ py: 0 }}>
+        {results.map((result, index) => (
+          <React.Fragment key={`${result.type}-${result.id}`}>
+            {index > 0 && <Divider />}
+            <ListItem disablePadding>
+              <ListItemButton onClick={() => onResultClick(result)}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 2,
+                    width: '100%',
+                    py: 0.5,
+                  }}
+                >
+                  {/* 图标 */}
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: 40,
+                      height: 40,
+                      borderRadius: 1,
+                      bgcolor: result.type === 'site' ? 'primary.light' : 'secondary.light',
+                      color: result.type === 'site' ? 'primary.main' : 'secondary.main',
+                    }}
+                  >
+                    {result.type === 'site' ? <LanguageIcon /> : <FolderIcon />}
+                  </Box>
+
+                  {/* 内容 */}
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <ListItemText
+                      primary={
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography
+                            variant='body1'
+                            sx={{
+                              fontWeight: 500,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            <HighlightedText text={result.name} query={query} />
+                          </Typography>
+                          <Chip
+                            label={result.type === 'site' ? '站点' : '分组'}
+                            size='small'
+                            color={result.type === 'site' ? 'primary' : 'secondary'}
+                            sx={{ height: 20 }}
+                          />
+                          {result.matchedFields.slice(0, 2).map((field) => (
+                            <Chip
+                              key={`${result.id}-${field}`}
+                              label={fieldLabels[field] || field}
+                              size='small'
+                              variant='outlined'
+                              sx={{ height: 20 }}
+                            />
+                          ))}
+                        </Box>
+                      }
+                      secondary={
+                        <Box sx={{ mt: 0.5 }}>
+                          {result.type === 'site' && result.groupName && (
+                            <Typography
+                              variant='caption'
+                              sx={{ color: 'text.secondary', display: 'block' }}
+                            >
+                              分组: {result.groupName}
+                            </Typography>
+                          )}
+                          {result.url && (
+                            <Typography
+                              variant='caption'
+                              sx={{
+                                color: 'text.secondary',
+                                display: 'block',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              <HighlightedText text={result.url} query={query} />
+                            </Typography>
+                          )}
+                          {result.description && (
+                            <Typography
+                              variant='caption'
+                              sx={{
+                                color: 'text.secondary',
+                                display: 'block',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              <HighlightedText text={result.description} query={query} />
+                            </Typography>
+                          )}
+                          {result.notes && (
+                            <Typography
+                              variant='caption'
+                              sx={{
+                                color: 'text.secondary',
+                                display: 'block',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              备注: <HighlightedText text={result.notes} query={query} />
+                            </Typography>
+                          )}
+                        </Box>
+                      }
+                    />
+                  </Box>
+                </Box>
+              </ListItemButton>
+            </ListItem>
+          </React.Fragment>
+        ))}
+      </List>
+
+      {/* 结果统计 */}
+      <Box
+        sx={{
+          px: 2,
+          py: 1,
+          bgcolor: 'action.hover',
+          borderTop: 1,
+          borderColor: 'divider',
+        }}
+      >
+        <Typography variant='caption' color='text.secondary'>
+          找到 {results.length} 个结果，按 Enter 可快速打开首个匹配项
+        </Typography>
+      </Box>
+      </Paper>
+    </Popper>
+  );
+};
+
+export default SearchResultPanel;
