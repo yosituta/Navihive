@@ -333,7 +333,7 @@ const GroupCard: React.FC<GroupCardProps> = ({
     <Paper
       elevation={sortMode === 'None' ? 2 : 3}
       sx={{
-        borderRadius: 5,
+        borderRadius: 1,
         p: { xs: 2, sm: 3 },
         transition: 'all 0.3s ease-in-out',
         border: '1px solid',
