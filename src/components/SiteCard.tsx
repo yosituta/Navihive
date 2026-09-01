@@ -147,7 +147,7 @@ const SiteCard = memo(function SiteCard({
           position: 'relative',
           display: 'flex',
           flexDirection: 'column',
-          borderRadius: 4,
+          borderRadius: 1,
           transition: 'box-shadow 0.35s ease, border-color 0.35s ease',
           border: '1px solid',
           borderColor: isFavorite ? 'secondary.main' : 'divider',
