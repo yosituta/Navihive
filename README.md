@@ -537,6 +537,12 @@ python script/chromeToJSON.py bookmarks.html > import.json
 - 导入会创建新数据，不会覆盖现有内容
 - 建议先在测试环境验证 JSON 格式正确性
 
+### 造成界面“大圆卡片”的主要位置是：
+- src/contexts/ThemeContext.tsx：将 shape.borderRadius: 18 改为 4
+- src/GroupCard.tsx：将卡片 borderRadius: 5 改为 4
+- src/SiteCard.tsx：将卡片 borderRadius: 4 改为 3
+- src/SortableGroupItem.tsx：将 borderRadius: 4 改为 3
+按钮和标签若也不想要胶囊形，可把 borderRadius: 999 改为 4。
 ---
 
 ## 🛠️ 技术栈
