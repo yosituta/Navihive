@@ -1561,6 +1561,15 @@ function App() {
                       updated_at: g.updated_at,
                     }))}
                     sites={allSites}
+                    suppressHistory={
+                      openMenu ||
+                      openImport ||
+                      openExport ||
+                      openConfig ||
+                      openAddGroup ||
+                      openAddSite ||
+                      Boolean(menuAnchorEl)
+                    }
                     onInternalResultClick={(result: SearchResultItem) => {
                       setContentFilter('all');
 
