@@ -51,13 +51,15 @@ const SearchResultPanel: React.FC<SearchResultPanelProps> = ({
       open
       anchorEl={anchorEl}
       disablePortal={false}
+      container={() => document.body}
       placement='bottom-start'
       modifiers={[
         { name: 'offset', options: { offset: [0, 8] } },
         { name: 'preventOverflow', options: { boundary: 'viewport', padding: 8 } },
         { name: 'flip', options: { boundary: 'viewport', padding: 8 } },
       ]}
-      sx={{ zIndex: 2000, width: anchorEl?.clientWidth || '100%' }}
+      popperOptions={{ strategy: 'fixed' }}
+      sx={{ zIndex: 9999, width: anchorEl?.clientWidth || '100%' }}
     >
       <Paper
         elevation={0}

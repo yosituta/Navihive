@@ -54,11 +54,18 @@ interface SearchBoxProps {
   groups: Group[];
   sites: Site[];
   onInternalResultClick?: (result: SearchResultItem) => void;
+  /** 页面打开菜单或对话框时，禁止搜索历史抢占界面。 */
+  suppressHistory?: boolean;
 }
 
 type SearchMode = 'internal' | 'external';
 
-const SearchBox: React.FC<SearchBoxProps> = ({ groups, sites, onInternalResultClick }) => {
+const SearchBox: React.FC<SearchBoxProps> = ({
+  groups,
+  sites,
+  onInternalResultClick,
+  suppressHistory = false,
+}) => {
   const [query, setQuery] = useState('');
   const [mode, setMode] = useState<SearchMode>('internal');
   const [results, setResults] = useState<SearchResultItem[]>([]);
@@ -68,6 +75,7 @@ const SearchBox: React.FC<SearchBoxProps> = ({ groups, sites, onInternalResultCl
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const searchBoxRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const allowHistoryFromClickRef = useRef(false);
   const suppressFocusHistoryRef = useRef(false);
   const historyService = useRef(createSearchHistoryService(20)).current;
 
@@ -217,8 +225,42 @@ const SearchBox: React.FC<SearchBoxProps> = ({ groups, sites, onInternalResultCl
       suppressFocusHistoryRef.current = false;
       return;
     }
-    if (mode === 'internal' && !query.trim()) {
+    if (
+      allowHistoryFromClickRef.current &&
+      !suppressHistory &&
+      mode === 'internal' &&
+      !query.trim()
+    ) {
       setShowHistory(true);
+    }
+    allowHistoryFromClickRef.current = false;
+  };
+
+  const handleInputMouseDown = () => {
+    // 历史记录只允许由用户点击输入框触发，程序化 focus（如 Ctrl/Cmd+K）不触发。
+    allowHistoryFromClickRef.current = true;
+  };
+
+  const handleInputClick = () => {
+    if (!suppressHistory && mode === 'internal' && !query.trim()) {
+      setShowHistory(true);
+    }
+    allowHistoryFromClickRef.current = false;
+  };
+
+  useEffect(() => {
+    if (suppressHistory) {
+      setShowHistory(false);
+      setShowResults(false);
+      inputRef.current?.blur();
+    }
+  }, [suppressHistory]);
+
+  const handleInputBlur = (event: React.FocusEvent<HTMLInputElement>) => {
+    const nextTarget = event.relatedTarget as Node | null;
+    if (!nextTarget || !searchBoxRef.current?.contains(nextTarget)) {
+      setShowHistory(false);
+      setShowResults(false);
     }
   };
 
@@ -394,7 +436,10 @@ const SearchBox: React.FC<SearchBoxProps> = ({ groups, sites, onInternalResultCl
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
+            onMouseDown={handleInputMouseDown}
+            onClick={handleInputClick}
             onFocus={handleInputFocus}
+            onBlur={handleInputBlur}
             sx={{ ml: 1, flex: 1 }}
             inputProps={{ 'aria-label': '搜索' }}
             autoComplete='off'
@@ -455,13 +500,15 @@ const SearchBox: React.FC<SearchBoxProps> = ({ groups, sites, onInternalResultCl
           open
           anchorEl={searchBoxRef.current}
           disablePortal={false}
+          container={() => document.body}
           placement='bottom-start'
           modifiers={[
             { name: 'offset', options: { offset: [0, 8] } },
             { name: 'preventOverflow', options: { boundary: 'viewport', padding: 8 } },
             { name: 'flip', options: { boundary: 'viewport', padding: 8 } },
           ]}
-          sx={{ zIndex: 2000, width: searchBoxRef.current?.clientWidth || '100%' }}
+          popperOptions={{ strategy: 'fixed' }}
+          sx={{ zIndex: 9999, width: searchBoxRef.current?.clientWidth || '100%' }}
         >
           <Paper
             elevation={0}
