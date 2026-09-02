@@ -6,6 +6,7 @@
 import React from 'react';
 import {
   Paper,
+  Popper,
   List,
   ListItem,
   ListItemButton,
@@ -24,6 +25,7 @@ interface SearchResultPanelProps {
   query: string;
   onResultClick: (result: SearchResultItem) => void;
   open: boolean;
+  anchorEl?: HTMLElement | null;
 }
 
 const SearchResultPanel: React.FC<SearchResultPanelProps> = ({
@@ -31,6 +33,7 @@ const SearchResultPanel: React.FC<SearchResultPanelProps> = ({
   query,
   onResultClick,
   open,
+  anchorEl,
 }) => {
   if (!open || !query || results.length === 0) {
     return null;
@@ -44,29 +47,39 @@ const SearchResultPanel: React.FC<SearchResultPanelProps> = ({
   };
 
   return (
-    <Paper
-      elevation={0}
-      sx={{
-        position: 'absolute',
-        top: '100%',
-        left: 0,
-        right: 0,
-        mt: 1,
-        maxHeight: '420px',
-        overflowY: 'auto',
-        zIndex: 1300,
-        borderRadius: 4,
-        border: '1px solid',
-        borderColor: 'divider',
-        backgroundColor: (theme) =>
-          theme.palette.mode === 'dark' ? 'rgba(8, 26, 38, 0.94)' : 'rgba(255, 255, 255, 0.96)',
-        backdropFilter: 'blur(16px)',
-        boxShadow: (theme) =>
-          theme.palette.mode === 'dark'
-            ? '0 30px 60px rgba(0, 0, 0, 0.35)'
-            : '0 24px 48px rgba(15, 118, 110, 0.12)',
-      }}
+    <Popper
+      open
+      anchorEl={anchorEl}
+      container={() => document.body}
+      disablePortal={false}
+      placement='bottom-start'
+      modifiers={[
+        { name: 'offset', options: { offset: [0, 8] } },
+        { name: 'preventOverflow', options: { boundary: 'viewport', padding: 8 } },
+        { name: 'flip', options: { boundary: 'viewport', padding: 8 } },
+      ]}
+      popperOptions={{ strategy: 'fixed' }}
+      sx={{ zIndex: 2000, width: anchorEl?.clientWidth || '100%' }}
     >
+      <Paper
+        elevation={0}
+        data-search-results-panel='true'
+        onMouseDown={(event) => event.stopPropagation()}
+        sx={{
+          maxHeight: '420px',
+          overflowY: 'auto',
+          borderRadius: 1,
+          border: '1px solid',
+          borderColor: 'divider',
+          backgroundColor: (theme) =>
+            theme.palette.mode === 'dark' ? 'rgba(8, 26, 38, 0.94)' : 'rgba(255, 255, 255, 0.96)',
+          backdropFilter: 'blur(16px)',
+          boxShadow: (theme) =>
+            theme.palette.mode === 'dark'
+              ? '0 30px 60px rgba(0, 0, 0, 0.35)'
+              : '0 24px 48px rgba(15, 118, 110, 0.12)',
+        }}
+      >
       <List sx={{ py: 0 }}>
         {results.map((result, index) => (
           <React.Fragment key={`${result.type}-${result.id}`}>
@@ -208,7 +221,8 @@ const SearchResultPanel: React.FC<SearchResultPanelProps> = ({
           找到 {results.length} 个结果，按 Enter 可快速打开首个匹配项
         </Typography>
       </Box>
-    </Paper>
+      </Paper>
+    </Popper>
   );
 };
 

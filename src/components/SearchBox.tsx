@@ -7,6 +7,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Paper,
+  Popper,
   InputBase,
   IconButton,
   Box,
@@ -67,6 +68,7 @@ const SearchBox: React.FC<SearchBoxProps> = ({ groups, sites, onInternalResultCl
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const searchBoxRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const allowHistoryFromClickRef = useRef(false);
   const historyService = useRef(createSearchHistoryService(20)).current;
 
   // 处理站内搜索
@@ -91,7 +93,9 @@ const SearchBox: React.FC<SearchBoxProps> = ({ groups, sites, onInternalResultCl
   useEffect(() => {
     if (mode === 'internal') {
       if (!query.trim()) {
-        setShowHistory(true);
+        // 空查询不会因为组件初始化或其它状态变化自动打开历史记录。
+        // 历史记录只由用户点击搜索输入框时打开。
+        setShowHistory(false);
         setShowResults(false);
         return;
       }
@@ -202,14 +206,36 @@ const SearchBox: React.FC<SearchBoxProps> = ({ groups, sites, onInternalResultCl
     setQuery('');
     setResults([]);
     setShowResults(false);
-    setShowHistory(mode === 'internal');
+    // 清空按钮不是“点击搜索输入框”，因此不自动打开历史记录。
+    setShowHistory(false);
     inputRef.current?.focus();
   };
 
   // 处理输入框获得焦点
   const handleInputFocus = () => {
+    if (allowHistoryFromClickRef.current && mode === 'internal' && !query.trim()) {
+      setShowHistory(true);
+    }
+    allowHistoryFromClickRef.current = false;
+  };
+
+  const handleInputMouseDown = () => {
+    allowHistoryFromClickRef.current = true;
+  };
+
+  const handleInputClick = () => {
+    // 输入框已经处于焦点时不会再次触发 focus，因此 click 也要负责打开历史。
     if (mode === 'internal' && !query.trim()) {
       setShowHistory(true);
+    }
+    allowHistoryFromClickRef.current = false;
+  };
+
+  const handleInputBlur = (event: React.FocusEvent<HTMLInputElement>) => {
+    const nextTarget = event.relatedTarget as Node | null;
+    if (!nextTarget || !searchBoxRef.current?.contains(nextTarget)) {
+      setShowHistory(false);
+      setShowResults(false);
     }
   };
 
@@ -231,15 +257,21 @@ const SearchBox: React.FC<SearchBoxProps> = ({ groups, sites, onInternalResultCl
 
   // 点击外部关闭搜索结果
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (searchBoxRef.current && !searchBoxRef.current.contains(event.target as Node)) {
+    const handleClickOutside = (event: PointerEvent) => {
+      const target = event.target as HTMLElement;
+      const inSearchPanel = Boolean(
+        target.closest('[data-search-history-panel], [data-search-results-panel]')
+      );
+      if (searchBoxRef.current && !searchBoxRef.current.contains(target) && !inSearchPanel) {
         setShowResults(false);
         setShowHistory(false);
+        inputRef.current?.blur();
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    // 捕获阶段优先于 MUI Menu/Dialog 的 Portal 事件，确保点击任意外部菜单都会关闭历史。
+    document.addEventListener('pointerdown', handleClickOutside, true);
+    return () => document.removeEventListener('pointerdown', handleClickOutside, true);
   }, []);
 
   // 从 localStorage 恢复上次选择的搜索引擎
@@ -370,7 +402,10 @@ const SearchBox: React.FC<SearchBoxProps> = ({ groups, sites, onInternalResultCl
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
+            onMouseDown={handleInputMouseDown}
+            onClick={handleInputClick}
             onFocus={handleInputFocus}
+            onBlur={handleInputBlur}
             sx={{ ml: 1, flex: 1 }}
             inputProps={{ 'aria-label': '搜索' }}
             autoComplete='off'
@@ -421,75 +456,87 @@ const SearchBox: React.FC<SearchBoxProps> = ({ groups, sites, onInternalResultCl
           query={query}
           onResultClick={handleResultClick}
           open={showResults}
+          anchorEl={searchBoxRef.current}
         />
       )}
 
       {/* 搜索历史面板 */}
       {mode === 'internal' && showHistory && !showResults && (
-        <Paper
-          elevation={0}
-          sx={{
-            position: 'absolute',
-            top: '100%',
-            left: 0,
-            right: 0,
-            mt: 1,
-            maxHeight: '300px',
-            overflowY: 'auto',
-            zIndex: 1300,
-            borderRadius: 4,
-            border: '1px solid',
-            borderColor: 'divider',
-            backgroundColor: (theme) =>
-              theme.palette.mode === 'dark' ? 'rgba(8, 26, 38, 0.94)' : 'rgba(255, 255, 255, 0.96)',
-            backdropFilter: 'blur(16px)',
-            boxShadow: (theme) =>
-              theme.palette.mode === 'dark'
-                ? '0 30px 60px rgba(0, 0, 0, 0.35)'
-                : '0 24px 48px rgba(15, 118, 110, 0.12)',
-          }}
+        <Popper
+          open
+          anchorEl={searchBoxRef.current}
+          container={() => document.body}
+          disablePortal={false}
+          placement='bottom-start'
+          modifiers={[
+            { name: 'offset', options: { offset: [0, 8] } },
+            { name: 'preventOverflow', options: { boundary: 'viewport', padding: 8 } },
+            { name: 'flip', options: { boundary: 'viewport', padding: 8 } },
+          ]}
+          popperOptions={{ strategy: 'fixed' }}
+          sx={{ zIndex: 2000, width: searchBoxRef.current?.clientWidth || '100%' }}
         >
-          <List sx={{ py: 0 }}>
-            {historyService.getHistory(10).length > 0 ? (
-              <>
-                <Box sx={{ px: 2, py: 1, bgcolor: 'action.hover' }}>
-                  <Typography variant='caption' color='text.secondary' fontWeight='medium'>
-                    最近搜索
+          <Paper
+            elevation={0}
+            data-search-history-panel='true'
+            onMouseDown={(event) => event.stopPropagation()}
+            sx={{
+              maxHeight: '300px',
+              overflowY: 'auto',
+              borderRadius: 1,
+              border: '1px solid',
+              borderColor: 'divider',
+              backgroundColor: (theme) =>
+                theme.palette.mode === 'dark' ? 'rgba(8, 26, 38, 0.94)' : 'rgba(255, 255, 255, 0.96)',
+              backdropFilter: 'blur(16px)',
+              boxShadow: (theme) =>
+                theme.palette.mode === 'dark'
+                  ? '0 30px 60px rgba(0, 0, 0, 0.35)'
+                  : '0 24px 48px rgba(15, 118, 110, 0.12)',
+            }}
+          >
+            <List sx={{ py: 0 }}>
+              {historyService.getHistory(10).length > 0 ? (
+                <>
+                  <Box sx={{ px: 2, py: 1, bgcolor: 'action.hover' }}>
+                    <Typography variant='caption' color='text.secondary' fontWeight='medium'>
+                      最近搜索
+                    </Typography>
+                  </Box>
+                  {historyService.getHistory(10).map((entry, index) => (
+                    <React.Fragment key={entry.query}>
+                      {index > 0 && <Divider />}
+                      <ListItem disablePadding>
+                        <ListItemButton onClick={() => handleHistoryClick(entry.query)}>
+                          <ListItemIcon>
+                            <HistoryIcon fontSize='small' />
+                          </ListItemIcon>
+                          <ListItemText
+                            primary={entry.query}
+                            secondary={`${entry.resultCount} 个结果`}
+                          />
+                          <IconButton
+                            size='small'
+                            onClick={(e) => handleDeleteHistory(e, entry.query)}
+                            sx={{ ml: 1 }}
+                          >
+                            <DeleteIcon fontSize='small' />
+                          </IconButton>
+                        </ListItemButton>
+                      </ListItem>
+                    </React.Fragment>
+                  ))}
+                </>
+              ) : (
+                <Box sx={{ px: 2, py: 3, textAlign: 'center' }}>
+                  <Typography variant='body2' color='text.secondary'>
+                    暂无搜索历史
                   </Typography>
                 </Box>
-                {historyService.getHistory(10).map((entry, index) => (
-                  <React.Fragment key={entry.query}>
-                    {index > 0 && <Divider />}
-                    <ListItem disablePadding>
-                      <ListItemButton onClick={() => handleHistoryClick(entry.query)}>
-                        <ListItemIcon>
-                          <HistoryIcon fontSize='small' />
-                        </ListItemIcon>
-                        <ListItemText
-                          primary={entry.query}
-                          secondary={`${entry.resultCount} 个结果`}
-                        />
-                        <IconButton
-                          size='small'
-                          onClick={(e) => handleDeleteHistory(e, entry.query)}
-                          sx={{ ml: 1 }}
-                        >
-                          <DeleteIcon fontSize='small' />
-                        </IconButton>
-                      </ListItemButton>
-                    </ListItem>
-                  </React.Fragment>
-                ))}
-              </>
-            ) : (
-              <Box sx={{ px: 2, py: 3, textAlign: 'center' }}>
-                <Typography variant='body2' color='text.secondary'>
-                  暂无搜索历史
-                </Typography>
-              </Box>
-            )}
-          </List>
-        </Paper>
+              )}
+            </List>
+          </Paper>
+        </Popper>
       )}
     </Box>
   );
